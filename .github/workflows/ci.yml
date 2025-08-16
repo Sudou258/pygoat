@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -29,30 +28,26 @@ jobs:
       - name: Run unit tests (smoke)
         run: pytest -q tests/test_sanity.py || true
 
-      - name: Run Bandit (SAST) -> SARIF
-        run: |
-          bandit -r . -f sarif -o bandit.sarif -ll -iii || true
-          if [ ! -s bandit.sarif ]; then
-            echo '{"version":"2.1.0","runs":[]}' > bandit.sarif
-          fi
-
-      - name: Upload Bandit SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: bandit.sarif
+      - name: Run Bandit (SAST)
+        run: bandit -r . -ll -iii || true
 
       - name: Dependency scan (pip-audit)
         run: |
           if [ -f requirements.txt ]; then
-            pip-audit -r requirements.txt -f json -o pip-audit.json || true
+            pip-audit -r requirements.txt || true
           else
-            pip-audit -f json -o pip-audit.json || true
+            pip-audit || true
           fi
 
-      - name: Save artifacts
-        uses: actions/upload-artifact@v4
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
         with:
-          name: security-reports
-          path: |
-            bandit.sarif
-            pip-audit.json
+          languages: python
+      - uses: github/codeql-action/analyze@v3
